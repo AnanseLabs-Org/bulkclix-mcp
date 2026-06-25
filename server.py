@@ -12,9 +12,12 @@ from typing import List, Optional, Dict, Any
 from mcp.server.fastmcp import FastMCP
 import httpx
 
+from mcp.server.transport_security import TransportSecuritySettings
+
 # Initialize FastMCP Server
 mcp = FastMCP(
-    "bulkclix-mcp"
+    "bulkclix-mcp",
+    transport_security=TransportSecuritySettings(enable_dns_rebinding_protection=False)
 )
 
 BASE_URL = "https://api.bulkclix.com/api/v1"
