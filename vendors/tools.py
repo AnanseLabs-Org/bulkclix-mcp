@@ -1,0 +1,225 @@
+from typing import Any, Dict, List, Optional
+from app import mcp
+from http_client import _call_vendor_api
+from vendors.registry import (
+    STATIC_VENDORS_LIST,
+    _lookup_vendor,
+    _public_vendor_view,
+    _expand_category_query
+)
+from vendors.menu import _flatten_menu
+
+@mcp.tool()
+async def get_verified_vendors(
+    *,
+    vendor_id: Optional[str] = None,
+    category: Optional[str] = None,
+) -> Dict[str, Any]:
+    """
+    List available vendors to purchase goods from using BulkClix payment.
+    :param vendor_id: Vendor's UUID. If given, returns just that vendor.
+    :param category: Vendor's category of goods (e.g. "restaurant", "food", "airtime").
+        If given, filters vendors using case-insensitive substring and synonym expansion.
+    """
+    if vendor_id:
+        vendor = _lookup_vendor(vendor_id)
+        if vendor is None:
+            return {"success": False, "error": f"No vendor found with id {vendor_id!r}"}
+        return {"success": True, "vendors": [_public_vendor_view(vendor)]}
+
+    vendors = STATIC_VENDORS_LIST
+    if category:
+        q_expanded = _expand_category_query(category)
+        vendors = [
+            v for v in vendors
+            if any(
+                any(syn in c.lower() or c.lower() in syn for syn in q_expanded)
+                for c in v.get("categories", [])
+            )
+        ]
+
+    return {"success": True, "vendors": [_public_vendor_view(v) for v in vendors]}
+
+
+@mcp.tool()
+async def get_verified_vendors_menu(
+    *,
+    vendor_id: str,
+    query: Optional[str] = None,
+) -> Dict[str, Any]:
+    """
+    List available menu items for a vendor, flattened and checkout-ready —
+    each item has dish_id, name, price, is_available, and addons. No nested categories.
+    :param vendor_id: Vendor's UUID.
+    :param query: Optional case-insensitive substring filter on dish name.
+    """
+    vendor = _lookup_vendor(vendor_id)
+    if vendor is None:
+        return {"success": False, "error": f"No vendor found with id {vendor_id!r}"}
+
+    # Branch for internal services (e.g., Airtime & Data)
+    if vendor.get("vendor_type") == "internal_service":
+        return {
+            "success": True,
+            "items": [],
+            "note": f"{vendor['name']} is an internal service. Please use the dedicated tools (airtime_purchase, data_purchase, or data_get_bundles) to query packages and buy."
+        }
+
+    raw_response = await _call_vendor_api("GET", vendor["menu_url"])
+
+    if isinstance(raw_response, dict) and raw_response.get("success") is False:
+        return raw_response
+
+    if not isinstance(raw_response, list):
+        return {"success": False, "error": "Unexpected menu response shape from vendor"}
+
+    items = _flatten_menu(raw_response)
+
+    if query:
+        q = query.lower()
+        items = [i for i in items if q in (i["name"] or "").lower()]
+
+    return {"success": True, "items": items}
+
+
+@mcp.tool()
+async def create_verified_vendors_order(
+    *,
+    vendor_id: str,
+    items: List[Dict[str, Any]],
+    payment_number: str,
+    network: str,
+    order_type: str = "inhouse",
+    table_number: Optional[str] = None,
+    delivery_address: Optional[str] = None,
+) -> Dict[str, Any]:
+    """
+    Place an order with a food/goods vendor and initiate mobile money payment via BulkClix.
+    :param vendor_id: Vendor's UUID.
+    :param items: Items to order, each shaped like
+        {"dish_id": <int>, "quantity": <int>, "addon_ids": [<int>, ...]}.
+    :param payment_number: Mobile money number to charge (e.g. "0544929180").
+    :param network: Mobile money network code (e.g. "MTN").
+    :param order_type: "inhouse" or "delivery" — must be one of the vendor's supported order_types.
+    :param table_number: Table number. Required when order_type is "inhouse".
+    :param delivery_address: Delivery address. Required when order_type is "delivery".
+    """
+    try:
+        vendor = _lookup_vendor(vendor_id)
+        if vendor is None:
+            return {"success": False, "error": f"No vendor found with id {vendor_id!r}"}
+
+        # Branch for internal services
+        if vendor.get("vendor_type") == "internal_service":
+            return {
+                "success": False,
+                "error": f"Vendor {vendor_id!r} is a telecom service. Please use the dedicated purchase tools directly (airtime_purchase, data_purchase) instead of this vendor order tool."
+            }
+
+        if "momo" not in vendor.get("payment_methods", []):
+            return {"success": False, "error": f"Vendor {vendor_id!r} does not support mobile money payment"}
+
+        supported_order_types = vendor.get("order_types", [])
+        if order_type not in supported_order_types:
+            return {
+                "success": False,
+                "error": f"Vendor {vendor_id!r} does not support order_type {order_type!r} "
+                         f"(supported: {supported_order_types})",
+            }
+        if order_type == "inhouse" and not table_number:
+            return {"success": False, "error": "table_number is required for inhouse orders"}
+        if order_type == "delivery" and not delivery_address:
+            return {"success": False, "error": "delivery_address is required for delivery orders"}
+
+        menu_result = await get_verified_vendors_menu(vendor_id=vendor_id)
+        if not menu_result["success"]:
+            return {"success": False, "error": f"Could not verify menu before ordering: {menu_result['error']}"}
+
+        menu_by_id = {item["dish_id"]: item for item in menu_result["items"]}
+        for line in items:
+            dish = menu_by_id.get(line.get("dish_id"))
+            if dish is None:
+                return {"success": False, "error": f"dish_id {line.get('dish_id')!r} not found on vendor's menu"}
+            if not dish["is_available"]:
+                return {"success": False, "error": f"{dish['name']!r} (dish_id {dish['dish_id']}) is currently unavailable"}
+
+        order_url = vendor.get("order_url")
+        if not order_url:
+            return {"success": False, "error": f"Vendor {vendor_id!r} has no configured order endpoint"}
+
+        payload = {
+            "order_type": order_type,
+            "table_number": table_number,
+            "items": items,
+            "payment_number": payment_number,
+            "network": network,
+        }
+        if order_type == "delivery":
+            payload["delivery_address"] = delivery_address
+
+        return await _call_vendor_api("POST", order_url, json=payload)
+    except Exception as e:
+        return {"success": False, "error": f"Unexpected error placing order: {e}"}
+
+
+@mcp.tool()
+async def find_food_items(
+    *,
+    query: str,
+    vendor_id: Optional[str] = None
+) -> Dict[str, Any]:
+    """
+    Search for food items, dishes, pizza, rice, chicken, or menus across all verified vendors or a specific vendor.
+    Use this when asking 'what food is available', 'show me the menu', 'do you have pizza', 'search menu for burger'.
+    """
+    try:
+        if vendor_id:
+            vendors_to_search = [{"vendor_id": vendor_id}]
+        else:
+            vendors_res = await get_verified_vendors(category="food")
+            if not vendors_res.get("success"):
+                return vendors_res
+            vendors_to_search = vendors_res.get("vendors", [])
+
+        all_matches = []
+        for v in vendors_to_search:
+            v_id = v["vendor_id"]
+            v_name = v.get("name")
+            if not v_name:
+                v_record = _lookup_vendor(v_id)
+                v_name = v_record.get("name", "Unknown Vendor") if v_record else "Unknown Vendor"
+
+            # Skip internal services for menu item searching
+            v_record = _lookup_vendor(v_id)
+            if v_record and v_record.get("vendor_type") == "internal_service":
+                continue
+
+            menu_res = await get_verified_vendors_menu(vendor_id=v_id, query=query)
+            if menu_res.get("success"):
+                for item in menu_res.get("items", []):
+                    item["vendor_id"] = v_id
+                    item["vendor_name"] = v_name
+                    all_matches.append(item)
+
+        return {
+            "success": True,
+            "query": query,
+            "total_matches": len(all_matches),
+            "items": all_matches
+        }
+    except Exception as e:
+        return {"success": False, "error": f"Failed to search food items: {e}"}
+
+
+@mcp.tool()
+async def list_vendor_categories() -> Dict[str, Any]:
+    """
+    List all categories of goods (e.g. 'restaurant', 'food', 'airtime', 'data') supported by the verified vendors.
+    """
+    categories = set()
+    for v in STATIC_VENDORS_LIST:
+        categories.update(v.get("categories", []))
+    return {
+        "success": True,
+        "categories": sorted(list(categories))
+    }

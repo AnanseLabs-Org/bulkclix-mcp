@@ -1,0 +1,27 @@
+version: "3.8"
+
+services:
+  mcp-server:
+    build: .
+    ports:
+      - "8000:8000"
+    environment:
+      - MCP_HOST=0.0.0.0
+      - MCP_PORT=8000
+      - MONGO_URI=mongodb://mongodb:27017/ananse_db
+      - BULKCLIX_API_KEY=${BULKCLIX_API_KEY:-}
+      - BULKCLIX_ENABLE_INTERNAL_TOOLS=${BULKCLIX_ENABLE_INTERNAL_TOOLS:-false}
+    depends_on:
+      - mongodb
+    restart: unless-stopped
+
+  mongodb:
+    image: mongo:7.0
+    ports:
+      - "27017:27017"
+    volumes:
+      - mongo_data:/data/db
+    restart: unless-stopped
+
+volumes:
+  mongo_data:

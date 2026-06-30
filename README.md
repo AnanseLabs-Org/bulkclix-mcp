@@ -8,6 +8,8 @@ Developed with **FastMCP** for simple tool declarations.
 
 ## Features
 
+- **Food & Catalog Ordering**: Search food menus across Accra/Bolt Food catalog, place merchant orders via SMS, collect MoMo payments.
+- **MongoDB Order Tracking**: Save user profiles, delivery addresses, and track live order lifecycle states (`PENDING`, `CONFIRMED`, `IN_TRANSIT`, `DELIVERED`).
 - **SMS**: Send bulk SMS, fetch campaign reports, request/list Sender IDs.
 - **OTP**: Send and verify OTPs via SMS and Email.
 - **Airtime**: List networks, purchase airtime via momo, and send airtime from wallet balance.
@@ -21,6 +23,16 @@ Developed with **FastMCP** for simple tool declarations.
 ---
 
 ## Installation & Running
+
+### Option 1: Docker Compose (Recommended - with MongoDB)
+
+Run the server along with the mini MongoDB instance for tracking orders and storing user profiles:
+
+```bash
+docker-compose up -d
+```
+
+### Option 2: Standalone via uv
 
 Using `uv` is highly recommended as it automatically manages dependencies:
 
@@ -61,7 +73,7 @@ mcpServers:
     args:
       - run
       - --directory
-      - /path/to/bulkclix-mcp
+      - /path/to/ananse-mcp
       - server.py
     type: stdio
 ```
@@ -71,7 +83,7 @@ mcpServers:
 Run the server on a port (e.g. port `8000`):
 
 ```bash
-cd bulkclix-mcp
+cd ananse-mcp
 uv run server.py mcp
 ```
 
