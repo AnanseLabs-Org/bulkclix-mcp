@@ -1,3 +1,4 @@
+import os
 import time
 import secrets
 from typing import Dict, Any
@@ -31,6 +32,21 @@ class InMemoryOAuthProvider:
             redirect_uris=[AnyUrl("https://tools.ananselabs.org/")]
         )
         self._clients["bulkclix-client"] = default_client
+
+        # Pre-register ChatGPT client
+        chatgpt_client_id = os.environ.get("OAUTH_CLIENT_ID", "956e6617-10ac-4e28-995a-e31bfe80f577")
+        chatgpt_client_secret = os.environ.get("OAUTH_CLIENT_SECRET", "bulkclix-secret")
+        chatgpt_client = OAuthClientInformationFull(
+            client_id=chatgpt_client_id,
+            client_secret=chatgpt_client_secret,
+            client_id_issued_at=int(time.time()),
+            client_secret_expires_at=None,
+            redirect_uris=[
+                AnyUrl("https://chatgpt.com/connector/oauth/DBK931HlDaKv"),
+                AnyUrl("https://chatgpt.com/connector_platform_oauth_redirect")
+            ]
+        )
+        self._clients[chatgpt_client_id] = chatgpt_client
 
     async def get_client(self, client_id: str) -> OAuthClientInformationFull | None:
         # Check cache
