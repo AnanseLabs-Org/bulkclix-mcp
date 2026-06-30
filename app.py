@@ -4,6 +4,42 @@ import fastmcp
 from fastmcp import FastMCP
 from fastmcp.server.auth.providers.auth0 import Auth0Provider
 
+# Monkeypatch Tool.to_mcp_tool to inject OpenAI-compliant tool annotations automatically
+try:
+    from fastmcp.tools.base import Tool
+    from mcp.types import ToolAnnotations
+
+    original_to_mcp_tool = Tool.to_mcp_tool
+    def custom_to_mcp_tool(self, **overrides):
+        mcp_tool = original_to_mcp_tool(self, **overrides)
+        
+        name_lower = self.name.lower()
+        
+        # Determine hints based on tool name prefixes
+        is_read_only = any(p in name_lower for p in ["get", "find", "list", "search", "read", "check"])
+        is_destructive = any(p in name_lower for p in ["delete", "remove", "cancel", "revoke", "suspend", "purge"])
+        
+        if not mcp_tool.annotations:
+            mcp_tool.annotations = ToolAnnotations(
+                readOnlyHint=is_read_only,
+                destructiveHint=is_destructive,
+                openWorldHint=True
+            )
+        else:
+            # If annotations exist, ensure readOnlyHint, openWorldHint, and destructiveHint are set
+            if mcp_tool.annotations.readOnlyHint is None:
+                mcp_tool.annotations.readOnlyHint = is_read_only
+            if mcp_tool.annotations.destructiveHint is None:
+                mcp_tool.annotations.destructiveHint = is_destructive
+            if mcp_tool.annotations.openWorldHint is None:
+                mcp_tool.annotations.openWorldHint = True
+                
+        return mcp_tool
+    Tool.to_mcp_tool = custom_to_mcp_tool
+except Exception as e:
+    import sys
+    print(f"Warning: Failed to monkeypatch Tool.to_mcp_tool: {e}", file=sys.stderr)
+
 # Configure settings globally
 fastmcp.settings.sse_path = "/"
 fastmcp.settings.message_path = "/messages/"
@@ -128,6 +164,22 @@ def custom_http_app(*args, **kwargs):
     if "transport" not in kwargs:
         kwargs["transport"] = "sse"
     app = original_http_app(*args, **kwargs)
+    
+    # Add openai-apps-challenge verification endpoint
+    from starlette.responses import PlainTextResponse
+    from starlette.routing import Route
+
+    async def challenge_endpoint(request):
+        token = os.environ.get("OPENAI_APPS_CHALLENGE_TOKEN")
+        if not token:
+            from starlette.responses import Response
+            return Response("Challenge token not configured in environment", status_code=500, media_type="text/plain")
+        return PlainTextResponse(token)
+
+    app.routes.append(
+        Route("/.well-known/openai-apps-challenge", endpoint=challenge_endpoint, methods=["GET"])
+    )
+    
     return SSESessionRewriteMiddleware(app)
 mcp.http_app = custom_http_app
 
