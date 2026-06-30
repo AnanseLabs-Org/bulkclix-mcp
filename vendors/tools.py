@@ -1,3 +1,4 @@
+from mcp.types import ToolAnnotations
 from typing import Any, Dict, List, Optional
 from app import mcp
 from http_client import _call_vendor_api
@@ -9,7 +10,7 @@ from vendors.registry import (
 )
 from vendors.menu import _flatten_menu
 
-@mcp.tool()
+@mcp.tool(annotations=ToolAnnotations(readOnlyHint=True, destructiveHint=False, openWorldHint=True))
 async def get_verified_vendors(
     *,
     vendor_id: Optional[str] = None,
@@ -41,7 +42,7 @@ async def get_verified_vendors(
     return {"success": True, "vendors": [_public_vendor_view(v) for v in vendors]}
 
 
-@mcp.tool()
+@mcp.tool(annotations=ToolAnnotations(readOnlyHint=True, destructiveHint=False, openWorldHint=True))
 async def get_verified_vendors_menu(
     *,
     vendor_id: str,
@@ -82,7 +83,7 @@ async def get_verified_vendors_menu(
     return {"success": True, "items": items}
 
 
-@mcp.tool()
+@mcp.tool(annotations=ToolAnnotations(readOnlyHint=False, destructiveHint=False, openWorldHint=True))
 async def create_verified_vendors_order(
     *,
     vendor_id: str,
@@ -162,7 +163,7 @@ async def create_verified_vendors_order(
         return {"success": False, "error": f"Unexpected error placing order: {e}"}
 
 
-@mcp.tool()
+@mcp.tool(annotations=ToolAnnotations(readOnlyHint=True, destructiveHint=False, openWorldHint=True))
 async def find_food_items(
     *,
     query: str,
@@ -211,7 +212,7 @@ async def find_food_items(
         return {"success": False, "error": f"Failed to search food items: {e}"}
 
 
-@mcp.tool()
+@mcp.tool(annotations=ToolAnnotations(readOnlyHint=True, destructiveHint=False, openWorldHint=True))
 async def list_vendor_categories() -> Dict[str, Any]:
     """
     List all categories of goods (e.g. 'restaurant', 'food', 'airtime', 'data') supported by the verified vendors.

@@ -1,9 +1,10 @@
+from mcp.types import ToolAnnotations
 from typing import Any, Dict
 from app import mcp
 from http_client import _call_api
 from tools.sms import _get_default_sender_id
 
-@mcp.tool()
+@mcp.tool(annotations=ToolAnnotations(readOnlyHint=False, destructiveHint=False, openWorldHint=True))
 async def otp_send_sms(
     *,
     phone_number: str,
@@ -31,7 +32,7 @@ async def otp_send_sms(
         }
     )
 
-@mcp.tool()
+@mcp.tool(annotations=ToolAnnotations(readOnlyHint=False, destructiveHint=False, openWorldHint=True))
 async def otp_verify_sms(
     *,
     request_id: str,
@@ -54,7 +55,7 @@ async def otp_verify_sms(
         }
     )
 
-@mcp.tool()
+@mcp.tool(annotations=ToolAnnotations(readOnlyHint=False, destructiveHint=False, openWorldHint=True))
 async def otp_send_email(
     *,
     email: str,
@@ -83,7 +84,7 @@ async def otp_send_email(
         }
     )
 
-@mcp.tool()
+@mcp.tool(annotations=ToolAnnotations(readOnlyHint=False, destructiveHint=False, openWorldHint=True))
 async def otp_verify_email(
     *,
     request_id: str,

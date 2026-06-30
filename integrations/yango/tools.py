@@ -1,8 +1,9 @@
+from mcp.types import ToolAnnotations
 from typing import Any, Dict
 from app import mcp
 from integrations.yango.widget import build_ride_widget_link
 
-@mcp.tool()
+@mcp.tool(annotations=ToolAnnotations(readOnlyHint=True, destructiveHint=False, openWorldHint=True))
 async def get_yango_delivery_link(
     *, pickup_lat: float, pickup_lon: float, dropoff_lat: float, dropoff_lon: float,
 ) -> Dict[str, Any]:

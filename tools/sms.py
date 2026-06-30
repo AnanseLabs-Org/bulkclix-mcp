@@ -41,7 +41,7 @@ async def _get_default_sender_id() -> str:
     raise RuntimeError("No sender ID is configured on the BulkClix account.")
 
 
-@internal_tool()
+@internal_tool(read_only=False, destructive=False, open_world=True)
 async def sms_send(
     *,
     message: str,
@@ -63,7 +63,7 @@ async def sms_send(
         }
     )
 
-@internal_tool()
+@internal_tool(read_only=True, destructive=False, open_world=True)
 async def sms_get_campaign_report(
     *,
     campaign_id: str
@@ -74,14 +74,14 @@ async def sms_get_campaign_report(
     """
     return await _call_api( "GET", f"/sms-api/campaignMessages/{campaign_id}")
 
-@internal_tool()
+@internal_tool(read_only=True, destructive=False, open_world=True)
 async def senderid_list() -> Dict[str, Any]:
     """
     List all SMS Sender IDs registered on your BulkClix account along with their status.
     """
     return await _call_api( "GET", "/sms-api/senderIds")
 
-@internal_tool()
+@internal_tool(read_only=False, destructive=False, open_world=True)
 async def senderid_request(
     *,
     name: str,

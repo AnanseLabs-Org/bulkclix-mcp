@@ -1,3 +1,4 @@
+from mcp.types import ToolAnnotations
 from typing import Any, Dict, Optional
 from app import mcp
 from decorators import internal_tool
@@ -5,7 +6,7 @@ from http_client import _call_api
 from auth import _get_payment_bearer_token
 from payments.helpers import _fetch_payment_history, _find_payment_history_match, _is_not_found_response, _payment_status_from_record
 
-@internal_tool()
+@internal_tool(read_only=False, destructive=True, open_world=True)
 async def momo_collect(
     *,
     amount: float,
@@ -36,7 +37,7 @@ async def momo_collect(
         data["reference"] = reference
     return await _call_api( "POST", "/payment-api/momopay", json_data=data)
 
-@mcp.tool()
+@mcp.tool(annotations=ToolAnnotations(readOnlyHint=True, destructiveHint=False, openWorldHint=True))
 async def momo_check_status(
     *,
     transaction_id: str,
@@ -68,7 +69,7 @@ async def momo_check_status(
     return status_response
 
 
-@mcp.tool()
+@mcp.tool(annotations=ToolAnnotations(readOnlyHint=False, destructiveHint=True, openWorldHint=True))
 async def pay_verify_otp(
     *,
     code: str,
@@ -98,7 +99,7 @@ async def pay_verify_otp(
     )
 
 
-@internal_tool()
+@internal_tool(read_only=False, destructive=True, open_world=True)
 async def momo_disburse(
     *,
     amount: float,

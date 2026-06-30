@@ -2,7 +2,7 @@ from typing import Any, Dict
 from decorators import internal_tool
 from http_client import _call_api
 
-@internal_tool()
+@internal_tool(read_only=False, destructive=False, open_world=True)
 async def kyc_msisdn_name_query(
     *,
     phone_number: str

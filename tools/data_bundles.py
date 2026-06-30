@@ -1,3 +1,4 @@
+from mcp.types import ToolAnnotations
 from typing import Any, Dict
 from app import mcp
 from http_client import _call_api
@@ -32,7 +33,7 @@ def _find_bundle_price(payload: Any, bundle_id: str) -> float | None:
 
     return None
 
-@mcp.tool()
+@mcp.tool(annotations=ToolAnnotations(readOnlyHint=True, destructiveHint=False, openWorldHint=True))
 async def data_get_bundles(
     *,
     network_id: str | None = None
@@ -43,7 +44,7 @@ async def data_get_bundles(
     return await _call_api("GET", "/databundle-api-v2/services")
 
 
-@mcp.tool()
+@mcp.tool(annotations=ToolAnnotations(readOnlyHint=True, destructiveHint=False, openWorldHint=True))
 async def data_get_offers(
     *,
     service_id: str,
@@ -59,7 +60,7 @@ async def data_get_offers(
         f"/databundle-api-v2/offers/{service_id}/{phone_number}",
     )
 
-@mcp.tool()
+@mcp.tool(annotations=ToolAnnotations(readOnlyHint=False, destructiveHint=False, openWorldHint=True))
 async def data_purchase(
     *,
     phone_number: str,
@@ -107,7 +108,7 @@ async def data_purchase(
     )
 
 
-@mcp.tool()
+@mcp.tool(annotations=ToolAnnotations(readOnlyHint=True, destructiveHint=False, openWorldHint=True))
 async def data_check_status(
     *,
     order_id: str,

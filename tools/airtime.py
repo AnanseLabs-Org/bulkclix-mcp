@@ -1,16 +1,17 @@
+from mcp.types import ToolAnnotations
 from typing import Any, Dict
 from app import mcp
 from decorators import internal_tool
 from http_client import _call_api
 
-@mcp.tool()
+@mcp.tool(annotations=ToolAnnotations(readOnlyHint=True, destructiveHint=False, openWorldHint=True))
 async def airtime_get_networks() -> Dict[str, Any]:
     """
     Get supported networks for airtime top-up.
     """
     return await _call_api( "GET", "/airtime-api/networks")
 
-@mcp.tool()
+@mcp.tool(annotations=ToolAnnotations(readOnlyHint=False, destructiveHint=False, openWorldHint=True))
 async def airtime_purchase(
     *,
     destination: str,
@@ -55,7 +56,7 @@ async def airtime_purchase(
         json_data=payload,
     )
 
-@internal_tool()
+@internal_tool(read_only=False, destructive=False, open_world=True)
 async def airtime_send(
     *,
     phone_number: str,

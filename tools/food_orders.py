@@ -1,3 +1,4 @@
+from mcp.types import ToolAnnotations
 from datetime import datetime, timezone
 from typing import Any, Dict, Optional
 from uuid import uuid4
@@ -8,7 +9,7 @@ from tools.sms import sms_send
 from payments.tools import momo_collect
 from vendors.registry import STATIC_VENDORS_LIST
 
-@mcp.tool()
+@mcp.tool(annotations=ToolAnnotations(readOnlyHint=True, destructiveHint=False, openWorldHint=True))
 async def search_food_menus(query: str, city: str = "accra") -> Dict[str, Any]:
     """
     Search food dishes and restaurants across available catalogs in a specified city (e.g. Accra).
@@ -45,7 +46,7 @@ async def search_food_menus(query: str, city: str = "accra") -> Dict[str, Any]:
         return {"success": False, "error": f"Failed to search food menus: {e}"}
 
 
-@mcp.tool()
+@mcp.tool(annotations=ToolAnnotations(readOnlyHint=False, destructiveHint=False, openWorldHint=True))
 async def save_customer_profile(
     customer_name: str,
     phone_number: str,
@@ -81,7 +82,7 @@ async def save_customer_profile(
         return {"success": False, "error": f"Failed to save customer profile: {e}"}
 
 
-@mcp.tool()
+@mcp.tool(annotations=ToolAnnotations(readOnlyHint=True, destructiveHint=False, openWorldHint=True))
 async def get_customer_profile(phone_number: str) -> Dict[str, Any]:
     """
     Retrieve a saved customer profile from MongoDB by phone number to get delivery address and payment preferences.
@@ -97,7 +98,7 @@ async def get_customer_profile(phone_number: str) -> Dict[str, Any]:
         return {"success": False, "error": f"Failed to retrieve customer profile: {e}"}
 
 
-@mcp.tool()
+@mcp.tool(annotations=ToolAnnotations(readOnlyHint=False, destructiveHint=False, openWorldHint=True))
 async def place_merchant_order(
     *,
     restaurant_phone: str,
@@ -176,7 +177,7 @@ async def place_merchant_order(
         return {"success": False, "error": f"Failed to place merchant order: {e}"}
 
 
-@mcp.tool()
+@mcp.tool(annotations=ToolAnnotations(readOnlyHint=False, destructiveHint=False, openWorldHint=True))
 async def track_order(order_id: str) -> Dict[str, Any]:
     """
     Track real-time status and delivery details of an order from MongoDB.
@@ -192,7 +193,7 @@ async def track_order(order_id: str) -> Dict[str, Any]:
         return {"success": False, "error": f"Failed to track order: {e}"}
 
 
-@internal_tool()
+@internal_tool(read_only=False, destructive=False, open_world=True)
 async def update_order_status(order_id: str, status: str) -> Dict[str, Any]:
     """
     [Internal Tool] Update the delivery lifecycle status of an order (e.g. CONFIRMED, IN_TRANSIT, DELIVERED).

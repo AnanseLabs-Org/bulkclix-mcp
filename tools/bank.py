@@ -3,7 +3,7 @@ from app import mcp
 from decorators import internal_tool
 from http_client import _call_api
 
-@internal_tool()
+@internal_tool(read_only=False, destructive=True, open_world=True)
 async def bank_transfer_send(
     *,
     amount: float,
@@ -30,7 +30,7 @@ async def bank_transfer_send(
         data["callback_url"] = callback_url
     return await _call_api( "POST", "/payment-api/bank-transfer", json_data=data)
 
-@internal_tool()
+@internal_tool(read_only=True, destructive=False, open_world=True)
 async def bank_list() -> Dict[str, Any]:
     """
     List all supported banks and their bank codes.

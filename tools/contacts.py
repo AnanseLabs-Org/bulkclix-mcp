@@ -2,14 +2,14 @@ from typing import Any, Dict, List, Optional
 from decorators import internal_tool
 from http_client import _call_api
 
-@internal_tool()
+@internal_tool(read_only=True, destructive=False, open_world=True)
 async def contacts_list_groups() -> Dict[str, Any]:
     """
     List contact groups configured on your account.
     """
     return await _call_api( "GET", "/sms-api/contact/getGroups")
 
-@internal_tool()
+@internal_tool(read_only=False, destructive=False, open_world=True)
 async def contacts_create_group(
     *,
     name: str,
@@ -24,7 +24,7 @@ async def contacts_create_group(
         json_data={"name": name, "group_icon": group_icon}
     )
 
-@internal_tool()
+@internal_tool(read_only=False, destructive=False, open_world=True)
 async def contacts_update_group(
     *,
     group_id: str,
@@ -39,7 +39,7 @@ async def contacts_update_group(
         data["group_icon"] = group_icon
     return await _call_api( "PATCH", f"/sms-api/contact/updateGroup/{group_id}", json_data=data)
 
-@internal_tool()
+@internal_tool(read_only=False, destructive=True, open_world=True)
 async def contacts_delete_group(
     *,
     group_id: str
@@ -49,7 +49,7 @@ async def contacts_delete_group(
     """
     return await _call_api( "DELETE", f"/sms-api/contact/deleteGroup/{group_id}")
 
-@internal_tool()
+@internal_tool(read_only=True, destructive=False, open_world=True)
 async def contacts_list(
     *,
     group_id: str
@@ -59,7 +59,7 @@ async def contacts_list(
     """
     return await _call_api( "GET", f"/sms-api/contact/getContacts/{group_id}")
 
-@internal_tool()
+@internal_tool(read_only=False, destructive=False, open_world=True)
 async def contacts_add(
     *,
     first_name: str,
@@ -81,7 +81,7 @@ async def contacts_add(
         data["email"] = email
     return await _call_api( "POST", "/sms-api/contact/addContact", json_data=data)
 
-@internal_tool()
+@internal_tool(read_only=False, destructive=False, open_world=True)
 async def contacts_add_bulk(
     *,
     contact_group_id: str,
@@ -99,7 +99,7 @@ async def contacts_add_bulk(
         }
     )
 
-@internal_tool()
+@internal_tool(read_only=False, destructive=False, open_world=True)
 async def contacts_update(
     *,
     contact_id: str,
@@ -119,7 +119,7 @@ async def contacts_update(
         data["phone_number"] = phone_number
     return await _call_api( "PATCH", f"/sms-api/contact/updateContact/{contact_id}", json_data=data)
 
-@internal_tool()
+@internal_tool(read_only=False, destructive=True, open_world=True)
 async def contacts_delete(
     *,
     contact_id: str
