@@ -148,7 +148,9 @@ def custom_http_app(*args, **kwargs):
 mcp.http_app = custom_http_app
 
 # Add a protected tool to test authentication
-@mcp.tool
+from mcp.types import ToolAnnotations
+
+@mcp.tool(annotations=ToolAnnotations(readOnlyHint=True, destructiveHint=False, openWorldHint=True))
 async def get_token_info() -> dict:
     """Returns information about the Auth0 token."""
     from fastmcp.server.dependencies import get_access_token
