@@ -13,6 +13,7 @@ from mcp.server.auth.provider import (
     construct_redirect_uri,
     TokenError
 )
+from db import _get_db
 
 class InMemoryOAuthProvider:
     def __init__(self):
@@ -32,7 +33,22 @@ class InMemoryOAuthProvider:
         self._clients["bulkclix-client"] = default_client
 
     async def get_client(self, client_id: str) -> OAuthClientInformationFull | None:
-        return self._clients.get(client_id)
+        # Check cache
+        client = self._clients.get(client_id)
+        if client:
+            return client
+        # Check MongoDB
+        db = _get_db()
+        if db is not None:
+            doc = await db.oauth_clients.find_one({"client_id": client_id}, {"_id": 0})
+            if doc:
+                # Convert redirect_uris back to AnyUrl
+                if "redirect_uris" in doc and doc["redirect_uris"]:
+                    doc["redirect_uris"] = [AnyUrl(u) for u in doc["redirect_uris"]]
+                client = OAuthClientInformationFull(**doc)
+                self._clients[client_id] = client
+                return client
+        return None
 
     async def register_client(self, client_info: OAuthClientInformationFull) -> None:
         if not client_info.client_id:
@@ -44,6 +60,18 @@ class InMemoryOAuthProvider:
                 redirect_uris=client_info.redirect_uris
             )
         self._clients[client_info.client_id] = client_info
+        # Save to MongoDB
+        db = _get_db()
+        if db is not None:
+            # Serialize for MongoDB (Pydantic model dump)
+            data = client_info.model_dump()
+            if "redirect_uris" in data and data["redirect_uris"]:
+                data["redirect_uris"] = [str(u) for u in data["redirect_uris"]]
+            await db.oauth_clients.update_one(
+                {"client_id": client_info.client_id},
+                {"$set": data},
+                upsert=True
+            )
 
     async def authorize(self, client: OAuthClientInformationFull, params: AuthorizationParams) -> str:
         code = secrets.token_hex(16)
