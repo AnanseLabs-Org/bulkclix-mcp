@@ -19,10 +19,24 @@ class SSESessionRewriteMiddleware:
         self.app = app
 
     async def __call__(self, scope, receive, send):
-        if scope["type"] == "http" and scope["method"] == "POST" and scope["path"] == "/":
+        if scope["type"] == "http":
+            path = scope["path"]
+            method = scope["method"]
             query_string = scope.get("query_string", b"").decode("utf-8")
-            if "session_id=" in query_string:
-                scope["path"] = "/messages/"
+            
+            # 1. Route GET handshakes to the root SSE path "/"
+            if method == "GET":
+                if path in {"/sse", "/mcp"}:
+                    scope["path"] = "/"
+            
+            # 2. Route POST messages to either "/messages/" or the "/mcp" stateless route
+            elif method == "POST":
+                if path in {"/", "/sse", "/mcp"}:
+                    if "session_id=" in query_string:
+                        scope["path"] = "/messages/"
+                    else:
+                        scope["path"] = "/mcp"
+                        
         await self.app(scope, receive, send)
 
 original_sse_app = mcp.sse_app
