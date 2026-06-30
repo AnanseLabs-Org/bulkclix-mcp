@@ -98,11 +98,19 @@ async def get_customer_profile(phone_number: str) -> Dict[str, Any]:
         return {"success": False, "error": f"Failed to retrieve customer profile: {e}"}
 
 
+from typing import List
+from pydantic import BaseModel, Field
+
+class MerchantOrderItem(BaseModel):
+    name: str = Field(..., description="The name of the food item or dish")
+    quantity: int = Field(..., description="The quantity of the item to order")
+    notes: Optional[str] = Field(None, description="Optional special instructions (e.g. 'no onions')")
+
 @mcp.tool(annotations=ToolAnnotations(readOnlyHint=False, destructiveHint=False, openWorldHint=True))
 async def place_merchant_order(
     *,
     restaurant_phone: str,
-    items: str,
+    items: List[MerchantOrderItem],
     customer_name: str,
     customer_phone: str,
     delivery_address: str,
@@ -118,10 +126,14 @@ async def place_merchant_order(
         order_id = f"ORD-{uuid4().hex[:8].upper()}"
         pay_phone = payment_phone or customer_phone
         
+        # Serialize list of items for DB and SMS representation
+        serialized_items = [item.model_dump() for item in items]
+        items_summary = ", ".join([f"{item.quantity}x {item.name}" + (f" ({item.notes})" if item.notes else "") for item in items])
+        
         order_doc = {
             "order_id": order_id,
             "restaurant_phone": restaurant_phone,
-            "items": items,
+            "items": serialized_items,
             "customer_name": customer_name,
             "customer_phone": customer_phone,
             "delivery_address": delivery_address,
@@ -149,7 +161,7 @@ async def place_merchant_order(
         sms_msg = (
             f"NEW ORDER [{order_id}]\n"
             f"Customer: {customer_name} ({customer_phone})\n"
-            f"Items: {items}\n"
+            f"Items: {items_summary}\n"
             f"Delivery Address: {delivery_address}\n"
             f"Payment Status: MoMo prompt sent to {pay_phone} ({payment_network})"
         )

@@ -83,11 +83,18 @@ async def get_verified_vendors_menu(
     return {"success": True, "items": items}
 
 
+from pydantic import BaseModel, Field
+
+class VendorOrderItem(BaseModel):
+    dish_id: int = Field(..., description="The integer ID of the dish/item to order")
+    quantity: int = Field(..., description="The quantity of the item to order")
+    addon_ids: List[int] = Field(default_factory=list, description="List of integer IDs of addons to include")
+
 @mcp.tool(annotations=ToolAnnotations(readOnlyHint=False, destructiveHint=False, openWorldHint=True))
 async def create_verified_vendors_order(
     *,
     vendor_id: str,
-    items: List[Dict[str, Any]],
+    items: List[VendorOrderItem],
     payment_number: str,
     network: str,
     order_type: str = "inhouse",
@@ -97,8 +104,7 @@ async def create_verified_vendors_order(
     """
     Place an order with a food/goods vendor and initiate mobile money payment via BulkClix.
     :param vendor_id: Vendor's UUID.
-    :param items: Items to order, each shaped like
-        {"dish_id": <int>, "quantity": <int>, "addon_ids": [<int>, ...]}.
+    :param items: List of items to order, with dish_id, quantity, and addon_ids.
     :param payment_number: Mobile money number to charge (e.g. "0544929180").
     :param network: Mobile money network code (e.g. "MTN").
     :param order_type: "inhouse" or "delivery" — must be one of the vendor's supported order_types.
@@ -138,9 +144,9 @@ async def create_verified_vendors_order(
 
         menu_by_id = {item["dish_id"]: item for item in menu_result["items"]}
         for line in items:
-            dish = menu_by_id.get(line.get("dish_id"))
+            dish = menu_by_id.get(line.dish_id)
             if dish is None:
-                return {"success": False, "error": f"dish_id {line.get('dish_id')!r} not found on vendor's menu"}
+                return {"success": False, "error": f"dish_id {line.dish_id!r} not found on vendor's menu"}
             if not dish["is_available"]:
                 return {"success": False, "error": f"{dish['name']!r} (dish_id {dish['dish_id']}) is currently unavailable"}
 
@@ -151,7 +157,7 @@ async def create_verified_vendors_order(
         payload = {
             "order_type": order_type,
             "table_number": table_number,
-            "items": items,
+            "items": [item.model_dump() for item in items],
             "payment_number": payment_number,
             "network": network,
         }
