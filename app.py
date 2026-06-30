@@ -13,3 +13,22 @@ mcp = FastMCP(
         allowed_hosts=[h.strip() for h in os.environ.get("MCP_PUBLIC_HOSTNAME", "localhost,127.0.0.1").split(",") if h.strip()],
     ),
 )
+
+class SSESessionRewriteMiddleware:
+    def __init__(self, app):
+        self.app = app
+
+    async def __call__(self, scope, receive, send):
+        if scope["type"] == "http" and scope["method"] == "POST" and scope["path"] == "/":
+            query_string = scope.get("query_string", b"").decode("utf-8")
+            if "session_id=" in query_string:
+                scope["path"] = "/messages/"
+            else:
+                scope["path"] = "/mcp"
+        await self.app(scope, receive, send)
+
+original_sse_app = mcp.sse_app
+def custom_sse_app(*args, **kwargs):
+    app = original_sse_app(*args, **kwargs)
+    return SSESessionRewriteMiddleware(app)
+mcp.sse_app = custom_sse_app
