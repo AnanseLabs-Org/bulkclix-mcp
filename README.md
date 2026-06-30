@@ -1,6 +1,6 @@
-# BulkClix MCP Server (Python FastMCP)
+# Ananse MCP Server (Python FastMCP)
 
-A Python-based **MCP (Model Context Protocol) server** that gives AI agents (LibreChat, Claude Desktop, Cursor, etc.) full access to the [BulkClix](https://bulkclix.com) platform via natural language.
+A Python-based **MCP (Model Context Protocol) server** that gives AI agents (LibreChat, Claude Desktop, Cursor, etc.) full access to ghanaian platforms via natural language.
 
 Developed with **FastMCP** for simple tool declarations.
 
@@ -106,7 +106,3 @@ If `BULKCLIX_API_KEY` is set on the machine running the server, the client can u
 Admin-only tools are hidden unless `BULKCLIX_ENABLE_INTERNAL_TOOLS=true` is set on the server.
 
 ---
-
-## License
-
-MIT © AnanseLabs
