@@ -16,7 +16,11 @@ if os.environ.get("MCP_ENABLE_OAUTH", "false").lower() == "true":
         issuer_url=public_url,
         resource_server_url=public_url,
         required_scopes=["mcp"],
-        client_registration_options=ClientRegistrationOptions(enabled=True),
+        client_registration_options=ClientRegistrationOptions(
+            enabled=True,
+            valid_scopes=["mcp"],
+            default_scopes=["mcp"]
+        ),
         revocation_options=RevocationOptions(enabled=True)
     )
 
