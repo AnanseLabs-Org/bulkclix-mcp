@@ -46,6 +46,9 @@ class SSESessionRewriteMiddleware:
                     
         await self.app(scope, receive, send)
 
+    def __getattr__(self, name):
+        return getattr(self.app, name)
+
 original_http_app = mcp.http_app
 def custom_http_app(*args, **kwargs):
     # Enforce transport="sse" if not specified, since we run on SSE
