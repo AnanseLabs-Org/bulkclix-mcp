@@ -1,55 +1,35 @@
 import os
 import config
-from mcp.server.fastmcp import FastMCP
-from mcp.server.transport_security import TransportSecuritySettings
-from mcp.server.auth.settings import AuthSettings, ClientRegistrationOptions, RevocationOptions
-from auth_provider import InMemoryOAuthProvider
-from auth0_verifier import Auth0TokenVerifier
+import fastmcp
+from fastmcp import FastMCP
+from fastmcp.server.auth.providers.auth0 import Auth0Provider
+
+# Configure settings globally
+fastmcp.settings.sse_path = "/"
+fastmcp.settings.message_path = "/messages/"
+fastmcp.settings.message_public_url = os.environ.get("MCP_PUBLIC_URL")
 
 auth_provider = None
-auth_settings = None
-token_verifier = None
-
-public_url = os.environ.get("MCP_PUBLIC_URL", "https://tools.ananselabs.org")
 
 if os.environ.get("MCP_ENABLE_AUTH0", "false").lower() == "true":
-    auth0_domain = os.environ.get("AUTH0_DOMAIN", "dev-0rvyw5vo8eu0rdbp.uk.auth0.com")
-    auth0_audience = os.environ.get("AUTH0_AUDIENCE", "https://dev-0rvyw5vo8eu0rdbp.uk.auth0.com/api/v2/")
-    
-    token_verifier = Auth0TokenVerifier(domain=auth0_domain, audience=auth0_audience)
-    auth_settings = AuthSettings(
-        issuer_url=f"https://{auth0_domain}/",
-        resource_server_url=public_url,
-        required_scopes=["mcp"]
-    )
-elif os.environ.get("MCP_ENABLE_OAUTH", "false").lower() == "true":
-    auth_provider = InMemoryOAuthProvider()
-    
-    auth_settings = AuthSettings(
-        issuer_url=public_url,
-        resource_server_url=public_url,
-        required_scopes=["mcp"],
-        client_registration_options=ClientRegistrationOptions(
-            enabled=True,
-            valid_scopes=["mcp"],
-            default_scopes=["mcp"]
-        ),
-        revocation_options=RevocationOptions(enabled=True)
+    auth0_domain = os.environ.get("AUTH0_DOMAIN")
+    auth0_client_id = os.environ.get("AUTH0_CLIENT_ID")
+    auth0_client_secret = os.environ.get("AUTH0_CLIENT_SECRET")
+    auth0_audience = os.environ.get("AUTH0_AUDIENCE")
+    public_url = os.environ.get("MCP_PUBLIC_URL")
+
+    if not all([auth0_domain, auth0_client_id, auth0_client_secret, auth0_audience, public_url]):
+        raise RuntimeError("Missing required Auth0 or public URL configurations in environment")
+
+    auth_provider = Auth0Provider(
+        config_url=f"https://{auth0_domain}/.well-known/openid-configuration",
+        client_id=auth0_client_id,
+        client_secret=auth0_client_secret,
+        audience=auth0_audience,
+        base_url=public_url,
     )
 
-mcp = FastMCP(
-    "ananse-mcp",
-    host=os.environ.get("MCP_HOST", "0.0.0.0"),
-    port=int(os.environ.get("MCP_PORT", "8000")),
-    sse_path="/",
-    auth_server_provider=auth_provider,
-    token_verifier=token_verifier,
-    auth=auth_settings,
-    transport_security=TransportSecuritySettings(
-        enable_dns_rebinding_protection=os.environ.get("MCP_DNS_REBINDING_PROTECTION", "true").lower() == "true",
-        allowed_hosts=[h.strip() for h in os.environ.get("MCP_PUBLIC_HOSTNAME", "localhost,127.0.0.1,tools.ananselabs.org,*.ananselabs.org").split(",") if h.strip()],
-    ),
-)
+mcp = FastMCP("ananse-mcp", auth=auth_provider)
 
 class SSESessionRewriteMiddleware:
     def __init__(self, app):
@@ -59,54 +39,38 @@ class SSESessionRewriteMiddleware:
         if scope["type"] == "http":
             path = scope["path"]
             method = scope["method"]
-            query_string = scope.get("query_string", b"").decode("utf-8")
             
-            # 1. Route GET handshakes and normalize OAuth discovery endpoints
+            # Normalize openid-configuration to oauth-authorization-server
             if method == "GET":
-                if path in {"/sse", "/mcp"}:
-                    scope["path"] = "/"
-                elif ".well-known/oauth-protected-resource" in path:
-                    scope["path"] = "/.well-known/oauth-protected-resource"
-                elif ".well-known/oauth-authorization-server" in path or ".well-known/openid-configuration" in path:
+                if ".well-known/openid-configuration" in path:
                     scope["path"] = "/.well-known/oauth-authorization-server"
-            
-            # 2. Route POST messages to either "/messages/" or the "/mcp" stateless route
-            elif method == "POST":
-                if path in {"/", "/sse", "/mcp"}:
-                    if "session_id=" in query_string:
-                        scope["path"] = "/messages/"
-                    else:
-                        scope["path"] = "/mcp"
-                        
+                    
         await self.app(scope, receive, send)
 
-original_sse_app = mcp.sse_app
-def custom_sse_app(*args, **kwargs):
-    app = original_sse_app(*args, **kwargs)
-    
-    # Mount/append the stateless /mcp route from the streamable HTTP app
-    try:
-        http_app = mcp.streamable_http_app()
-        mcp_route = next(r for r in http_app.routes if getattr(r, "path", None) == "/mcp")
-        app.routes.append(mcp_route)
-        
-        # Wrap the app lifespan to initialize the streamable HTTP session manager task group
-        from contextlib import asynccontextmanager
-        original_lifespan = app.router.lifespan_context
-        
-        @asynccontextmanager
-        async def combined_lifespan(app_instance):
-            async with mcp._session_manager.run():
-                if original_lifespan:
-                    async with original_lifespan(app_instance) as state:
-                        yield state
-                else:
-                    yield
-                    
-        app.router.lifespan_context = combined_lifespan
-    except Exception as e:
-        import sys
-        print(f"Warning: Failed to import stateless /mcp route: {e}", file=sys.stderr)
-        
+original_http_app = mcp.http_app
+def custom_http_app(*args, **kwargs):
+    # Enforce transport="sse" if not specified, since we run on SSE
+    if "transport" not in kwargs:
+        kwargs["transport"] = "sse"
+    app = original_http_app(*args, **kwargs)
     return SSESessionRewriteMiddleware(app)
-mcp.sse_app = custom_sse_app
+mcp.http_app = custom_http_app
+
+# Add a protected tool to test authentication
+@mcp.tool
+async def get_token_info() -> dict:
+    """Returns information about the Auth0 token."""
+    from fastmcp.server.dependencies import get_access_token
+
+    token = get_access_token()
+
+    if not token:
+        return {"error": "No token provided"}
+
+    return {
+        "issuer": token.claims.get("iss") if token.claims else None,
+        "audience": token.claims.get("aud") if token.claims else None,
+        "scope": token.claims.get("scope") if token.claims else None,
+        "subject": token.subject,
+        "client_id": token.client_id
+    }
