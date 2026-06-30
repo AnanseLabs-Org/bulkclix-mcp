@@ -19,7 +19,11 @@ WORKDIR /app
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
-COPY . .
+COPY app.py auth.py config.py db.py decorators.py http_client.py server.py entrypoint.sh ./
+COPY tools/ ./tools/
+COPY vendors/ ./vendors/
+COPY payments/ ./payments/
+COPY integrations/ ./integrations/
 RUN chmod +x entrypoint.sh
 
 # Run as non-root.
