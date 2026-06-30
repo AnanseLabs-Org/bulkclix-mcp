@@ -29,7 +29,8 @@ class InMemoryOAuthProvider:
             client_secret="bulkclix-secret",
             client_id_issued_at=int(time.time()),
             client_secret_expires_at=None,
-            redirect_uris=[AnyUrl("https://tools.ananselabs.org/")]
+            redirect_uris=[AnyUrl("https://tools.ananselabs.org/")],
+            scope="mcp"
         )
         self._clients["bulkclix-client"] = default_client
 
@@ -44,7 +45,8 @@ class InMemoryOAuthProvider:
             redirect_uris=[
                 AnyUrl("https://chatgpt.com/connector/oauth/DBK931HlDaKv"),
                 AnyUrl("https://chatgpt.com/connector_platform_oauth_redirect")
-            ]
+            ],
+            scope="mcp"
         )
         self._clients[chatgpt_client_id] = chatgpt_client
 
