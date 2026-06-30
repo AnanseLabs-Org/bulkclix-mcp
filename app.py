@@ -69,5 +69,15 @@ class SSESessionRewriteMiddleware:
 original_sse_app = mcp.sse_app
 def custom_sse_app(*args, **kwargs):
     app = original_sse_app(*args, **kwargs)
+    
+    # Mount/append the stateless /mcp route from the streamable HTTP app
+    try:
+        http_app = mcp.streamable_http_app()
+        mcp_route = next(r for r in http_app.routes if getattr(r, "path", None) == "/mcp")
+        app.routes.append(mcp_route)
+    except Exception as e:
+        import sys
+        print(f"Warning: Failed to import stateless /mcp route: {e}", file=sys.stderr)
+        
     return SSESessionRewriteMiddleware(app)
 mcp.sse_app = custom_sse_app
