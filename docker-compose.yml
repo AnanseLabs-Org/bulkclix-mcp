@@ -12,6 +12,8 @@ services:
       - BULKCLIX_API_KEY=${BULKCLIX_API_KEY:-}
       - BULKCLIX_ENABLE_INTERNAL_TOOLS=${BULKCLIX_ENABLE_INTERNAL_TOOLS:-false}
       - CLOUDFLARE_TUNNEL_TOKEN=${CLOUDFLARE_TUNNEL_TOKEN:-}
+      - MCP_ENABLE_OAUTH=${MCP_ENABLE_OAUTH:-false}
+      - MCP_PUBLIC_URL=${MCP_PUBLIC_URL:-https://tools.ananselabs.org}
     depends_on:
       - mongodb
     restart: unless-stopped
