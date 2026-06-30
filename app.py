@@ -89,6 +89,21 @@ def custom_sse_app(*args, **kwargs):
         http_app = mcp.streamable_http_app()
         mcp_route = next(r for r in http_app.routes if getattr(r, "path", None) == "/mcp")
         app.routes.append(mcp_route)
+        
+        # Wrap the app lifespan to initialize the streamable HTTP session manager task group
+        from contextlib import asynccontextmanager
+        original_lifespan = app.router.lifespan_context
+        
+        @asynccontextmanager
+        async def combined_lifespan(app_instance):
+            async with mcp._session_manager.run():
+                if original_lifespan:
+                    async with original_lifespan(app_instance) as state:
+                        yield state
+                else:
+                    yield
+                    
+        app.router.lifespan_context = combined_lifespan
     except Exception as e:
         import sys
         print(f"Warning: Failed to import stateless /mcp route: {e}", file=sys.stderr)
