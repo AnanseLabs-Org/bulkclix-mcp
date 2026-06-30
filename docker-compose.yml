@@ -14,6 +14,9 @@ services:
       - CLOUDFLARE_TUNNEL_TOKEN=${CLOUDFLARE_TUNNEL_TOKEN:-}
       - MCP_ENABLE_OAUTH=${MCP_ENABLE_OAUTH:-false}
       - MCP_PUBLIC_URL=${MCP_PUBLIC_URL:-https://tools.ananselabs.org}
+      - MCP_ENABLE_AUTH0=${MCP_ENABLE_AUTH0:-false}
+      - AUTH0_DOMAIN=${AUTH0_DOMAIN:-}
+      - AUTH0_AUDIENCE=${AUTH0_AUDIENCE:-}
     depends_on:
       - mongodb
     restart: unless-stopped
