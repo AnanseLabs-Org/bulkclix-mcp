@@ -32,5 +32,36 @@ services:
       - mongo_data:/data/db
     restart: unless-stopped
 
+  n8n:
+    image: docker.n8n.io/n8nio/n8n:latest
+    restart: unless-stopped
+    environment:
+      - N8N_PORT=5678
+      - N8N_PROTOCOL=https
+      - WEBHOOK_URL=https://auto.ananselabs.org/
+      - N8N_ENFORCE_SETTINGS_FILE_PERMISSIONS=true
+      - N8N_ENCRYPTION_KEY=${N8N_ENCRYPTION_KEY}
+      # OIDC Hooks configuration
+      - OIDC_ISSUER_URL=https://${AUTH0_DOMAIN:-}/
+      - OIDC_CLIENT_ID=${AUTH0_CLIENT_ID:-}
+      - OIDC_CLIENT_SECRET=${AUTH0_CLIENT_SECRET:-}
+      - OIDC_REDIRECT_URI=https://auto.ananselabs.org/auth/oidc/callback
+      - EXTERNAL_HOOK_FILES=/home/node/hooks.js
+      - N8N_ADDITIONAL_NON_UI_ROUTES=auth
+      - EXTERNAL_FRONTEND_HOOKS_URLS=/assets/oidc-frontend-hook.js
+    volumes:
+      - n8n_data:/home/node/.n8n
+      - ./hooks.js:/home/node/hooks.js:ro
+
+  cloudflared-n8n:
+    image: cloudflare/cloudflared:latest
+    restart: unless-stopped
+    command: tunnel --no-autoupdate run
+    environment:
+      - TUNNEL_TOKEN=${N8N_CLOUDFLARE_TUNNEL_TOKEN}
+    depends_on:
+      - n8n
+
 volumes:
   mongo_data:
+  n8n_data:
