@@ -33,11 +33,7 @@ async def whatsapp_send(
     phone_part = raw_to[9:] if has_whatsapp_prefix else raw_to
     phone_part = phone_part.replace(" ", "").replace("-", "").replace("(", "").replace(")", "")
     
-    if phone_part.startswith("0") and len(phone_part) == 10:
-        phone_part = f"+233{phone_part[1:]}"
-    elif phone_part.startswith("233") and not phone_part.startswith("+"):
-        phone_part = f"+{phone_part}"
-    elif not phone_part.startswith("+"):
+    if not phone_part.startswith("+"):
         phone_part = f"+{phone_part}"
         
     formatted_to = f"whatsapp:{phone_part}"
@@ -48,11 +44,7 @@ async def whatsapp_send(
     from_phone_part = raw_from[9:] if has_whatsapp_from_prefix else raw_from
     from_phone_part = from_phone_part.replace(" ", "").replace("-", "").replace("(", "").replace(")", "")
     
-    if from_phone_part.startswith("0") and len(from_phone_part) == 10:
-        from_phone_part = f"+233{from_phone_part[1:]}"
-    elif from_phone_part.startswith("233") and not from_phone_part.startswith("+"):
-        from_phone_part = f"+{from_phone_part}"
-    elif not from_phone_part.startswith("+"):
+    if not from_phone_part.startswith("+"):
         from_phone_part = f"+{from_phone_part}"
         
     formatted_from = f"whatsapp:{from_phone_part}"
